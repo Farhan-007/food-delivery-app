@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { eq, and } from 'drizzle-orm';
-import { router, protectedProcedure, adminProcedure } from '../trpc.js';
-import { coupons, restaurants } from '@repo/db';
+import { router, protectedProcedure } from '../trpc.js';
+import { coupons } from '@repo/db';
 import { validateCouponSchema } from '@repo/validators/coupon';
 import { z } from 'zod';
 

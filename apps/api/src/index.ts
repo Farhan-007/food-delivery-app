@@ -9,8 +9,9 @@ import { createServer } from 'node:http';
 import { auth } from '@repo/auth';
 import { getServerEnv } from '@repo/config';
 import { appRouter } from './routers/index.js';
-import { createContext } from './context.js';
+import { createContextFactory } from './context.js';
 import { setupSocketHandlers } from './socket.js';
+import { startNotificationWorker } from './queues/worker.js';
 
 // ============================================================
 // Hono Application
@@ -49,14 +50,8 @@ app.get('/health', (c) =>
 // --- Better-Auth routes ---
 app.all('/api/auth/**', (c) => auth.handler(c.req.raw));
 
-// --- tRPC routes ---
-app.use(
-  '/api/trpc/**',
-  trpcServer({
-    router: appRouter,
-    createContext: (_opts, c) => createContext(c.req),
-  }),
-);
+// --- tRPC routes (injected after io is created) ---
+// Note: io is wired in after httpServer creation below
 
 // --- 404 handler ---
 app.notFound((c) => c.json({ error: 'Not Found' }, 404));
@@ -76,21 +71,25 @@ app.onError((err, c) => {
 
 const httpServer = createServer((req, res) => {
   // Delegate to Hono
-  app.fetch(new Request(`http://localhost${req.url}`, {
-    method: req.method,
-    headers: req.headers as HeadersInit,
-  })).then((response) => {
-    res.writeHead(response.status, Object.fromEntries(response.headers));
-    response.body?.pipeTo(
-      new WritableStream({
-        write(chunk) { res.write(chunk); },
-        close() { res.end(); },
-      }),
-    );
-  }).catch(() => {
-    res.writeHead(500);
-    res.end('Internal Server Error');
+  const requestInfo = new Request(`http://localhost${req.url}`, {
+    method: req.method || 'GET',
+    headers: req.headers as any,
   });
+
+  Promise.resolve(app.fetch(requestInfo))
+    .then((response: any) => {
+      res.writeHead(response.status, Object.fromEntries(response.headers));
+      response.body?.pipeTo(
+        new WritableStream({
+          write(chunk) { res.write(chunk); },
+          close() { res.end(); },
+        }),
+      );
+    })
+    .catch(() => {
+      res.writeHead(500);
+      res.end('Internal Server Error');
+    });
 });
 
 const io = new SocketIOServer(httpServer, {
@@ -101,6 +100,18 @@ const io = new SocketIOServer(httpServer, {
 });
 
 setupSocketHandlers(io);
+
+// Wire tRPC with the io instance so routers can emit socket events
+app.use(
+  '/api/trpc/**',
+  trpcServer({
+    router: appRouter,
+    createContext: ((_opts: any, c: any) => createContextFactory(io)(c.req)) as any,
+  }),
+);
+
+// Start BullMQ notification worker
+startNotificationWorker();
 
 // ============================================================
 // Start

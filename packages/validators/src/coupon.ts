@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Coupon Validators
 // ============================================================
 
-export const createCouponSchema = z.object({
+export const couponBaseSchema = z.object({
   code: z
     .string()
     .min(3)
@@ -19,12 +19,14 @@ export const createCouponSchema = z.object({
   validFrom: z.string().datetime(),
   validUntil: z.string().datetime(),
   isActive: z.boolean().default(true),
-}).refine((d) => new Date(d.validFrom) < new Date(d.validUntil), {
+});
+
+export const createCouponSchema = couponBaseSchema.refine((d) => new Date(d.validFrom) < new Date(d.validUntil), {
   message: 'validFrom must be before validUntil',
   path: ['validUntil'],
 });
 
-export const updateCouponSchema = createCouponSchema.partial().extend({
+export const updateCouponSchema = couponBaseSchema.partial().extend({
   id: z.string().uuid(),
 });
 

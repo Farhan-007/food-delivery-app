@@ -18,7 +18,7 @@ const cartItemSchema = z.object({
   selectedVariations: z.array(selectedVariationSchema).default([]),
 });
 
-export const placeOrderSchema = z.object({
+export const placeOrderBaseSchema = z.object({
   restaurantId: z.string().uuid(),
   items: z.array(cartItemSchema).min(1, 'At least one item required'),
   type: z.enum(['delivery', 'pickup']),
@@ -26,7 +26,9 @@ export const placeOrderSchema = z.object({
   paymentMethod: z.enum(['cod', 'stripe', 'paypal', 'wallet']),
   couponCode: z.string().max(50).optional().nullable(),
   specialInstructions: z.string().max(500).optional().nullable(),
-}).refine(
+});
+
+export const placeOrderSchema = placeOrderBaseSchema.refine(
   (d) => d.type === 'pickup' || (d.type === 'delivery' && d.deliveryAddressId !== undefined),
   { message: 'Delivery address is required for delivery orders', path: ['deliveryAddressId'] },
 );
