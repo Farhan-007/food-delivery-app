@@ -1,0 +1,39 @@
+{
+  "name": "@repo/api",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "db:generate": "cd ../../packages/db && pnpm db:generate",
+    "db:migrate": "cd ../../packages/db && pnpm db:migrate",
+    "db:seed": "cd ../../packages/db && pnpm db:seed"
+  },
+  "dependencies": {
+    "@hono/trpc-server": "^0.3.4",
+    "@trpc/server": "^11.0.0",
+    "hono": "^4.6.17",
+    "zod": "^3.24.1",
+    "socket.io": "^4.8.1",
+    "bullmq": "^5.34.6",
+    "ioredis": "^5.4.2",
+    "@aws-sdk/client-s3": "^3.726.1",
+    "@aws-sdk/s3-request-presigner": "^3.726.1",
+    "superjson": "^2.2.1",
+    "@repo/db": "workspace:*",
+    "@repo/auth": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/validators": "workspace:*",
+    "@repo/config": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "bun-types": "^1.1.43",
+    "@types/node": "^22.10.7"
+  }
+}
