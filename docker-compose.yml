@@ -1,0 +1,115 @@
+version: '3.9'
+
+# ============================================================
+# FoodHub — Docker Compose (Development)
+# Usage: docker compose up -d
+# ============================================================
+
+services:
+  # PostgreSQL 16 + PostGIS 3.4
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: foodhub_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: foodhub_db
+      POSTGRES_USER: foodhub
+      POSTGRES_PASSWORD: foodhub_dev_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U foodhub -d foodhub_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Valkey (open-source Redis fork)
+  redis:
+    image: valkey/valkey:7.2-alpine
+    container_name: foodhub_redis
+    restart: unless-stopped
+    command: valkey-server --save 60 1 --loglevel warning
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # MinIO (S3-compatible object storage)
+  minio:
+    image: minio/minio:latest
+    container_name: foodhub_minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - '9000:9000'   # S3 API
+      - '9001:9001'   # MinIO Console UI
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO bucket setup (runs once on startup)
+  minio-setup:
+    image: minio/mc:latest
+    container_name: foodhub_minio_setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+        mc mb --ignore-existing myminio/food-delivery;
+        mc anonymous set public myminio/food-delivery;
+        exit 0;
+      "
+
+  # pgAdmin (optional, comment out if not needed)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: foodhub_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@foodhub.dev
+      PGADMIN_DEFAULT_PASSWORD: pgadmin
+    ports:
+      - '5050:80'
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+  # Redis Insight (optional)
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: foodhub_redis_insight
+    restart: unless-stopped
+    ports:
+      - '5540:5540'
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  default:
+    name: foodhub_network
