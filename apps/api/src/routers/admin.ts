@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, sql, gte } from 'drizzle-orm';
 import { router, adminProcedure } from '../trpc.js';
 import { users, orders, restaurants, coupons, zones } from '@repo/db';
 import { createCouponSchema, updateCouponSchema } from '@repo/validators/coupon';
@@ -164,10 +164,11 @@ export const adminRouter = router({
   createCoupon: adminProcedure
     .input(createCouponSchema)
     .mutation(async ({ ctx, input }) => {
+      const { validFrom, validUntil, ...rest } = input;
       const [coupon] = await ctx.db.insert(coupons).values({
-        ...input,
-        validFrom: new Date(input.validFrom),
-        validUntil: new Date(input.validUntil),
+        ...rest,
+        validFrom: new Date(validFrom),
+        validUntil: new Date(validUntil),
       }).returning();
       return coupon;
     }),
@@ -175,11 +176,11 @@ export const adminRouter = router({
   updateCoupon: adminProcedure
     .input(updateCouponSchema)
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const { id, validFrom, validUntil, ...data } = input;
       const [updated] = await ctx.db.update(coupons).set({
         ...data,
-        ...(data.validFrom ? { validFrom: new Date(data.validFrom) } : {}),
-        ...(data.validUntil ? { validUntil: new Date(data.validUntil) } : {}),
+        ...(validFrom ? { validFrom: new Date(validFrom) } : {}),
+        ...(validUntil ? { validUntil: new Date(validUntil) } : {}),
       }).where(eq(coupons.id, id)).returning();
       if (!updated) throw new TRPCError({ code: 'NOT_FOUND' });
       return updated;

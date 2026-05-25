@@ -19,7 +19,7 @@ export const restaurantRouter = router({
   search: publicProcedure
     .input(restaurantSearchSchema)
     .query(async ({ ctx, input }) => {
-      const { q, lat, lng, radiusKm, cuisineType, minRating, maxDeliveryTime, isOpen, page, pageSize, sortBy, sortOrder } = input;
+      const { q, minRating, maxDeliveryTime, isOpen, page, pageSize, sortBy, sortOrder } = input;
 
       const conditions = [
         eq(restaurants.isActive, true),

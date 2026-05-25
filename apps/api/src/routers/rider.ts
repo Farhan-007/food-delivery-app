@@ -36,8 +36,21 @@ export const riderRouter = router({
           },
         });
 
+      // Broadcast location to any customer subscribed to this rider's active order
+      if (ctx.io) {
+        ctx.io.of('/orders')
+          .to(`rider:tracking:${ctx.user.id}`)
+          .emit('rider:location:update', {
+            riderId: ctx.user.id,
+            lat: input.lat,
+            lng: input.lng,
+            heading: input.heading ?? null,
+          });
+      }
+
       return { success: true };
     }),
+
 
   // Get rider's current location (for customer tracking)
   getLocation: riderProcedure
